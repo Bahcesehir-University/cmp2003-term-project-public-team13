@@ -64,13 +64,44 @@ void processCsvLine(const std::string& line) {
 void TripAnalyzer::ingestFile(const std::string& csvPath) {
     zoneCounts.clear();
     slotCounts.clear();
+    zoneCounts.reserve(100000);
+    slotCounts.reserve(100000);
+ 
     std::ifstream file(csvPath);
     if (!file.is_open()) return;
-     
+ 
     std::string line;
-    std::getline(file, line);
+    std::getline(file, line); // skip header
+ 
     while (std::getline(file, line)) {
-        processCsvLine(line);
+        // Split into tokens
+        std::vector<std::string_view> tokens;
+        tokens.reserve(6);
+        size_t start = 0, end;
+        while ((end = line.find(',', start)) != std::string::npos) {
+            tokens.emplace_back(line.c_str() + start, end - start);
+            start = end + 1;
+        }
+        tokens.emplace_back(line.c_str() + start);
+ 
+        // Must have exactly 6 columns
+        if (tokens.size() != 6) continue;
+ 
+        // Skip if any column is empty
+        bool anyEmpty = false;
+        for (auto& t : tokens) {
+            if (t.empty()) { anyEmpty = true; break; }
+        }
+        if (anyEmpty) continue;
+ 
+        std::string_view zone = tokens[1];
+        std::string_view time = tokens[3];
+ 
+        int hour;
+        if (!extractHour(time, hour)) continue;
+ 
+        zoneCounts[std::string(zone)]++;
+        slotCounts[{std::string(zone), hour}]++;
     }
 }
  
